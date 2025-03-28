@@ -1,111 +1,85 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
-  ScrollView,
+  FlatList,
+  SafeAreaView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
+import mqtt from 'sp-react-native-mqtt';
+import { ADDRESS } from './constants';
+import { ConnectMQTT, CreateNotificationChannel, DisconnectAllMQTT} from './mqtt/MQTT';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [isMQTTEnabled, setIsMQTTEnabled] = useState(false);
+  const [MQTTMsg, setMQTTMsg] = useState('');
+  const [MQTTLogs, setMQTTlogs] = useState<string[]>([]);
+  const [channelId, setChannelId] = useState('');
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+
+  // remove this USE EFFECT in release.
+  useEffect(() => {
+    mqtt.disconnectAll();
+    CreateNotificationChannel().then(
+      (channelId)=>{
+        setChannelId(channelId);
+      }
+    )
+  }, []);
+
+  useEffect(() => {
+    mqtt.disconnectAll();
+    if (isMQTTEnabled) {
+      console.log('starting service');
+      ConnectMQTT(setMQTTMsg, setMQTTlogs, setIsMQTTEnabled, channelId);
+    }
+    else{
+      console.log('stop service');
+      DisconnectAllMQTT();
+    }
+  }, [isMQTTEnabled]);
+
+
+
+  const toggleSwitch = async () => {
+    setIsMQTTEnabled(!isMQTTEnabled);  
   };
 
-  /*
-   * To keep the template simple and small we're adding padding to prevent view
-   * from rendering under the System UI.
-   * For bigger apps the reccomendation is to use `react-native-safe-area-context`:
-   * https://github.com/AppAndFlow/react-native-safe-area-context
-   *
-   * You can read more about it here:
-   * https://github.com/react-native-community/discussions-and-proposals/discussions/827
-   */
-  const safePadding = '5%';
+  
+
 
   return (
-    <View style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        style={backgroundStyle}>
-        <View style={{paddingRight: safePadding}}>
-          <Header/>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#FBF8EF'}}>
+      <StatusBar barStyle={'dark-content'} />
+      <View style={styles.sectionContainer}>
+        <View style={styles.textContainer}>
+          <Text style={styles.textStyle}>MQTT {'\n'}Notification</Text>
         </View>
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-            paddingHorizontal: safePadding,
-            paddingBottom: safePadding,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+        <View style={styles.switchContainer}>
+          <Text style={{color: 'white'}}>{isMQTTEnabled ? 'ON' : 'OFF'}</Text>
+          <Switch
+            onValueChange={toggleSwitch}
+            trackColor={{false: '#9fa0a6', true: 'white'}}
+            thumbColor={isMQTTEnabled ? '#89AC46' : '#f4f3f4'}
+            value={isMQTTEnabled}
+          />
         </View>
-      </ScrollView>
-    </View>
+        <View style={styles.detailsContainer}>
+          <Text style={styles.detailsTextStyle}>Details ( {ADDRESS} ) :</Text>
+          <FlatList
+            style={{gap: 0, marginBottom: 30, paddingHorizontal: 20}}
+            data={MQTTLogs}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({item}) => (
+              <Text style={{color: 'white'}}>-{item}</Text>
+            )}
+          />
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -113,18 +87,34 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginTop: 32,
     paddingHorizontal: 24,
+    backgroundColor: '#FFA725',
+    flex: 1,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  statusBar: {
+    backgroundColor: '#d47833',
   },
-  sectionDescription: {
+  textContainer: {
     marginTop: 8,
     fontSize: 18,
-    fontWeight: '400',
   },
-  highlight: {
-    fontWeight: '700',
+  textStyle: {
+    color: 'white',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  detailsContainer: {
+    marginTop: 10,
+    flex: 1,
+  },
+  detailsTextStyle: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

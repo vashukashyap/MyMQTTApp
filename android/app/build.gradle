@@ -109,6 +109,7 @@ android {
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
+    implementation project(':sp-react-native-mqtt')
     implementation("com.facebook.react:react-android")
 
     if (hermesEnabled.toBoolean()) {
@@ -116,4 +117,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    
 }
